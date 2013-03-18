@@ -55,14 +55,17 @@ class Space2Ctrl {
   XRecordContext recContext;
 
   void setupXTestExtension(){
+    cout<<"setupXTestExtension "<<endl;
     int ev, er, ma, mi;
     if (!XTestQueryExtension(userData.ctrlDisplay, &ev, &er, &ma, &mi)) {
       cout << "%sThere is no XTest extension loaded to X server.\n" << endl;
       throw exception();
     }
+    cout<<"                   ...done "<<endl;
   }
 
   void setupRecordExtension() {
+    cout<<"setupRecordExtension "<<endl;
     XSynchronize(userData.ctrlDisplay, True);
 
     // Record extension exists?
@@ -89,6 +92,7 @@ class Space2Ctrl {
       cout << "Could not create a record context!" << endl;
       throw exception();
     }
+    cout<<"setupRecordExtension ... done"<<endl;
   }
 
   static int diff_ms(timeval t1, timeval t2) {
@@ -114,35 +118,31 @@ class Space2Ctrl {
     unsigned char t = data->event.u.u.type;
     int c = data->event.u.u.detail;
 
-    // cout << "\nState:" << endl;
-    // if (space_down)
-    //   cout << "space_down = true" << endl;
-    // else
-    //   cout << "space_down = false" << endl;
+    cout << "\nState:" << endl;
+    if (space_down) cout << "space_down = true" << endl;
+    else            cout << "space_down = false" << endl;
 
-    // if (key_combo)
-    //   cout << "key_combo = true" << endl;
-    // else
-    //   cout << "key_combo = false" << endl;
+    if (key_combo) cout << "key_combo = true" << endl;
+    else           cout << "key_combo = false" << endl;
 
-    // // if (modifier_down)
-    // //   cout << "modifier_down = true" << endl;
-    // // else
-    // //   cout << "modifier_down = false" << endl;
-    // cout << endl;
+    // if (modifier_down)
+    //   cout << "modifier_down = true" << endl;
+    // else
+    //   cout << "modifier_down = false" << endl;
+    cout << endl;
 
     switch (t) {
     case KeyPress:
       {
-        // cout << "KeyPress";
+        cout << "KeyPress ("<<c<<")";
         if (c == 65) {
           space_down = true; // space pressed
           gettimeofday(&startWait, NULL);
-          // cout << "    65" << endl;
+          cout << "    65" << endl;
 
         } else if ( (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_L))
                     || (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_R)) ) {
-          // cout << "    Control_{L||R}" << endl;
+          cout << "    Control_{L||R}" << endl;
           // ctrl pressed
           if (space_down) { // space ctrl sequence
             XTestFakeKeyEvent(userData->ctrlDisplay, 255, True, CurrentTime);
@@ -152,12 +152,12 @@ class Space2Ctrl {
                     || (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_R))
                     || (c == 108)
                     ) {
-          // cout << "    Modifier" << endl;
+          cout << "    Modifier" << endl;
           // TODO: Find a better way to get those modifiers!!!
           modifier_down = true;
 
         } else { // another key pressed
-          // cout << "    Another" << endl;
+          cout << "    Another" << endl;
           if (space_down) {
             key_combo = true;
           } else {
@@ -170,13 +170,13 @@ class Space2Ctrl {
       }
     case KeyRelease:
       {
-        // cout << "KeyRelease";
+        cout << "KeyRelease";
         if (c == 65) {
-          // cout << "    65";
+          cout << "    65";
           space_down = false; // space released
 
           if (!key_combo && !modifier_down) {
-            // cout << "    (!key_combo && !modifier_down)";
+            cout << "    (!key_combo && !modifier_down)";
             gettimeofday(&endWait, NULL);
             if ( diff_ms(endWait, startWait) < 600 ) {
               // if minimum timeout elapsed since space was pressed
@@ -185,10 +185,10 @@ class Space2Ctrl {
             }
           }
           key_combo = false;
-          // cout << endl;
+          cout << endl;
         } else if ( (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_L))
                     || (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Control_R)) ) {
-          // cout << "    Control_{L||R}" << endl;
+          cout << "    Control_{L||R}" << endl;
           // ctrl release
           if (space_down)
             key_combo = true;
@@ -196,7 +196,7 @@ class Space2Ctrl {
                     || (c == XKeysymToKeycode(userData->ctrlDisplay, XK_Shift_R))
                     || (c == 108)
                     ) {
-          // cout << "    Modifier" << endl;
+          cout << "    Modifier" << endl;
           // TODO: Find a better way to get those modifiers!!!
           modifier_down = false;
         }
@@ -226,18 +226,20 @@ public:
   }
 
   bool connect(string displayName) {
+    cout<<"connect '"<<displayName<<"'"<<endl;
     m_displayName = displayName;
     if (NULL == (userData.ctrlDisplay = XOpenDisplay(m_displayName.c_str())) ) {
+      cout<<"connect : 1st if"<<endl;
       return false;
     }
     if (NULL == (userData.dataDisplay = XOpenDisplay(m_displayName.c_str())) ) {
       XCloseDisplay(userData.ctrlDisplay);
       userData.ctrlDisplay = NULL;
+      cout<<"connect : 2nd if"<<endl;
       return false;
     }
 
     // You may want to set custom X error handler here
-
     userData.initialObject = (void *) this;
     setupXTestExtension();
     setupRecordExtension();
@@ -246,6 +248,7 @@ public:
   }
 
   void start() {
+    cout<<"start()"<<endl;
     // // Remap keycode 255 to Keysym space:
     // KeySym spc = XK_space;
     // XChangeKeyboardMapping(userData.ctrlDisplay, 255, 1, &spc, 1);
@@ -258,6 +261,9 @@ public:
     if (!XRecordEnableContext(userData.dataDisplay, recContext, eventCallback,
                               (XPointer) &userData)) {
       throw exception();
+    }else{
+      cout<<"XRecordEnableContext("<<userData.dataDisplay<<","<<recContext<<","<<eventCallback<<","
+          <<"(XPointer)"<<(&userData)<<")"<<endl;
     }
   }
 
@@ -285,10 +291,15 @@ int main() {
   void (*prev_fn)(int);
 
   prev_fn = signal (SIGTERM, stop);
-  if (prev_fn==SIG_IGN) signal (SIGTERM,SIG_IGN);
-
+  if (prev_fn==SIG_IGN){
+    cout<<"prev_fn==SIG_IGN"<<endl;
+    signal (SIGTERM,SIG_IGN);
+  }
+  cout<<"about to start"<<endl;
   if (space2ctrl->connect(":0")) {
+    cout<<"connected"<<endl;
     space2ctrl->start();
+    cout<<"started"<<endl;
   }
   return 0;
 }
